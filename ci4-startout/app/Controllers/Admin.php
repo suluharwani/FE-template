@@ -20,9 +20,15 @@ class Admin extends BaseController
     protected $careerModel;
     protected $settingModel;
     protected $session;
+    protected $request;
 
     public function __construct()
     {
+        // Inisialisasi service
+        $this->session = \Config\Services::session();
+        $this->request = \Config\Services::request();
+        
+        // Inisialisasi model
         $this->userModel = new UserModel();
         $this->pageModel = new PageModel();
         $this->serviceModel = new ServiceModel();
@@ -30,15 +36,19 @@ class Admin extends BaseController
         $this->contactModel = new ContactModel();
         $this->careerModel = new CareerModel();
         $this->settingModel = new SettingModel();
-        $this->session = \Config\Services::session();
         
-        // Check if user is logged in and is admin for all methods except login
-        if (!in_array($this->request->getMethod(true), ['GET', 'POST']) || 
-            !in_array($this->request->getMethod(true), ['GET', 'POST']) || 
-            $this->request->getMethod(true) === 'POST' && $this->request->getUri()->getPath() !== '/admin/login') {
-            if (!$this->isLoggedIn() || !$this->isAdmin()) {
-                return redirect()->to('/admin/login');
-            }
+        // Periksa login untuk semua method kecuali login
+        $currentMethod = $this->request->getMethod();
+        $currentURI = $this->request->getUri()->getPath();
+        
+        // Jika bukan halaman login dan user belum login, redirect ke login
+        if ($currentURI !== '/admin/login' && !$this->isLoggedIn()) {
+            return redirect()->to('/admin/login');
+        }
+        
+        // Jika sudah login tapi bukan admin, tampilkan error
+        if ($this->isLoggedIn() && !$this->isAdmin() && $currentURI !== '/admin/login') {
+            throw new \CodeIgniter\Exceptions\PageNotFoundException('You do not have permission to access this page');
         }
     }
 
@@ -137,7 +147,7 @@ class Admin extends BaseController
                     $this->session->setFlashdata('error', 'Failed to create page');
                 }
             } else {
-                $this->session->setFlashdata('error', $validation->getErrors());
+                $this->session->setFlashdata('error', $validation->listErrors());
             }
         }
         
@@ -182,7 +192,7 @@ class Admin extends BaseController
                     $this->session->setFlashdata('error', 'Failed to update page');
                 }
             } else {
-                $this->session->setFlashdata('error', $validation->getErrors());
+                $this->session->setFlashdata('error', $validation->listErrors());
             }
         }
         
@@ -251,7 +261,7 @@ class Admin extends BaseController
                     $this->session->setFlashdata('error', 'Failed to create service');
                 }
             } else {
-                $this->session->setFlashdata('error', $validation->getErrors());
+                $this->session->setFlashdata('error', $validation->listErrors());
             }
         }
         
@@ -297,7 +307,7 @@ class Admin extends BaseController
                     $this->session->setFlashdata('error', 'Failed to update service');
                 }
             } else {
-                $this->session->setFlashdata('error', $validation->getErrors());
+                $this->session->setFlashdata('error', $validation->listErrors());
             }
         }
         
@@ -374,7 +384,7 @@ class Admin extends BaseController
                     $this->session->setFlashdata('error', 'Failed to create team member');
                 }
             } else {
-                $this->session->setFlashdata('error', $validation->getErrors());
+                $this->session->setFlashdata('error', $validation->listErrors());
             }
         }
         
@@ -433,7 +443,7 @@ class Admin extends BaseController
                     $this->session->setFlashdata('error', 'Failed to update team member');
                 }
             } else {
-                $this->session->setFlashdata('error', $validation->getErrors());
+                $this->session->setFlashdata('error', $validation->listErrors());
             }
         }
         
@@ -626,7 +636,7 @@ class Admin extends BaseController
         
         $data = [
             'title' => 'Site Settings',
-            'settings' => $this->settingModel->findAll()
+            'settings' => $this->settingModel->getAllSettings()
         ];
         
         return view('admin/settings', $data);
@@ -658,7 +668,7 @@ class Admin extends BaseController
                 $data = [
                     'username' => $this->request->getPost('username'),
                     'email' => $this->request->getPost('email'),
-                    'password' => password_hash($this->request->getPost('password'), PASSWORD_DEFAULT),
+                    'password' => $this->request->getPost('password'),
                     'full_name' => $this->request->getPost('full_name'),
                     'role' => $this->request->getPost('role'),
                     'is_active' => $this->request->getPost('is_active') ? 1 : 0
@@ -671,7 +681,7 @@ class Admin extends BaseController
                     $this->session->setFlashdata('error', 'Failed to create user');
                 }
             } else {
-                $this->session->setFlashdata('error', $validation->getErrors());
+                $this->session->setFlashdata('error', $validation->listErrors());
             }
         }
         
@@ -719,7 +729,7 @@ class Admin extends BaseController
                 
                 // Update password only if provided
                 if ($this->request->getPost('password')) {
-                    $data['password'] = password_hash($this->request->getPost('password'), PASSWORD_DEFAULT);
+                    $data['password'] = $this->request->getPost('password');
                 }
                 
                 if ($this->userModel->update($id, $data)) {
@@ -729,7 +739,7 @@ class Admin extends BaseController
                     $this->session->setFlashdata('error', 'Failed to update user');
                 }
             } else {
-                $this->session->setFlashdata('error', $validation->getErrors());
+                $this->session->setFlashdata('error', $validation->listErrors());
             }
         }
         
